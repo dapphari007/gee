@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Home, Users, BookOpen, BarChart3, Settings, Trophy, 
   TrendingUp, Calendar, AlertCircle, CheckCircle, School, Award,
-  Plus, Eye, Edit3, UserCheck, GraduationCap, FileText, PieChart
+  Plus, Eye, Edit3, UserCheck, GraduationCap, FileText, PieChart, Clock
 } from 'lucide-react';
 import Navigation from '../common/Navigation';
 
@@ -810,7 +810,7 @@ const SchoolDashboard: React.FC = () => {
             <input 
               type="text" 
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              defaultValue="Delhi Public School"
+              defaultValue=""
             />
           </div>
           <div>

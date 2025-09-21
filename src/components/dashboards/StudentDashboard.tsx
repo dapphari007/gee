@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, BookOpen, Trophy, Target, Users, BarChart3, Star, Award, Leaf, Zap, TreePine, Droplets, CheckCircle, Clock, TrendingUp, Medal, Crown, Siren as Fire } from 'lucide-react';
+import { Home, BookOpen, Trophy, Target, Users, BarChart3, Star, Award, Leaf, Zap, TreePine, Droplets, CheckCircle, Clock, TrendingUp, Medal, Crown, Siren as Fire, Heart } from 'lucide-react';
 import Navigation from '../common/Navigation';
 import { useUser } from '../../contexts/UserContext';
 
