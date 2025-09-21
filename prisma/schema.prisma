@@ -1,0 +1,1054 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// USER MANAGEMENT & AUTHENTICATION
+// ================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String?  @unique
+  name      String
+  avatar    String?
+  role      UserRole @default(STUDENT)
+  status    UserStatus @default(ACTIVE)
+  
+  // Profile Information
+  dateOfBirth DateTime?
+  grade       String?   // For students
+  subject     String?   // For teachers
+  bio         String?
+  location    String?
+  
+  // Platform Stats
+  points      Int @default(0)
+  level       Int @default(1)
+  experience  Int @default(0)
+  streak      Int @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  // Authentication
+  emailVerified DateTime?
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Relationships
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  // Student specific relationships
+  enrollments     Enrollment[]
+  progress        Progress[]
+  achievements    UserAchievement[]
+  activities      UserActivity[]
+  challengeParticipations ChallengeParticipation[]
+  
+  // Teacher specific relationships
+  createdContent  Content[] @relation("ContentCreator")
+  managedClasses  Class[] @relation("ClassTeacher")
+  
+  // Social features
+  posts           Post[]
+  comments        Comment[]
+  likes           Like[]
+  following       Follow[] @relation("Follower")
+  followers       Follow[] @relation("Following")
+  groupMemberships GroupMembership[]
+  
+  // Communication
+  sentMessages     Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  notifications    Notification[]
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ================================
+// INSTITUTIONS & ORGANIZATIONS
+// ================================
+
+model Institution {
+  id          String          @id @default(cuid())
+  name        String
+  type        InstitutionType
+  code        String?         @unique
+  email       String?
+  phone       String?
+  website     String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  postalCode  String?
+  
+  // Institution specific
+  principalName   String?
+  establishedYear Int?
+  studentCount    Int?
+  teacherCount    Int?
+  
+  // Platform settings
+  settings        Json?
+  isVerified      Boolean @default(false)
+  status          InstitutionStatus @default(ACTIVE)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  users       User[]
+  classes     Class[]
+  content     Content[]
+  challenges  Challenge[]
+  partnerships Partnership[]
+  analytics   Analytics[]
+  
+  @@map("institutions")
+}
+
+model Class {
+  id            String @id @default(cuid())
+  name          String
+  grade         String
+  section       String?
+  academicYear  String
+  
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  
+  teacherId     String
+  teacher       User @relation("ClassTeacher", fields: [teacherId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  enrollments Enrollment[]
+  assignments Assignment[]
+  
+  @@map("classes")
+}
+
+model Enrollment {
+  id        String @id @default(cuid())
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  
+  classId   String
+  class     Class @relation(fields: [classId], references: [id])
+  
+  enrolledAt DateTime @default(now())
+  status     EnrollmentStatus @default(ACTIVE)
+  
+  @@unique([userId, classId])
+  @@map("enrollments")
+}
+
+// ================================
+// CONTENT MANAGEMENT SYSTEM
+// ================================
+
+model Content {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  type        ContentType
+  category    String
+  tags        String[]
+  
+  // Content data
+  data        Json // Flexible content storage
+  duration    Int? // In minutes
+  difficulty  Difficulty
+  language    String @default("en")
+  
+  // Media
+  thumbnail   String?
+  images      String[]
+  videos      String[]
+  attachments String[]
+  
+  // Metadata
+  objectives  String[]
+  prerequisites String[]
+  keywords    String[]
+  
+  // Status
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  version     Int @default(1)
+  
+  // Author information
+  creatorId     String
+  creator       User @relation("ContentCreator", fields: [creatorId], references: [id])
+  
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  modules     Module[]
+  progress    Progress[]
+  assignments Assignment[]
+  reviews     ContentReview[]
+  analytics   ContentAnalytics[]
+  
+  @@map("content")
+}
+
+model Module {
+  id        String @id @default(cuid())
+  title     String
+  order     Int
+  
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  lessons   Lesson[]
+  
+  @@map("modules")
+}
+
+model Lesson {
+  id        String @id @default(cuid())
+  title     String
+  content   Json
+  order     Int
+  duration  Int? // In minutes
+  
+  moduleId  String
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  quizzes   Quiz[]
+  progress  LessonProgress[]
+  
+  @@map("lessons")
+}
+
+model Quiz {
+  id        String @id @default(cuid())
+  title     String
+  questions Json
+  passingScore Int @default(70)
+  
+  lessonId  String
+  lesson    Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  
+  attempts  QuizAttempt[]
+  
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id       String @id @default(cuid())
+  answers  Json
+  score    Int
+  passed   Boolean
+  
+  userId   String
+  user     User @relation(fields: [userId], references: [id])
+  
+  quizId   String
+  quiz     Quiz @relation(fields: [quizId], references: [id])
+  
+  submittedAt DateTime @default(now())
+  
+  @@map("quiz_attempts")
+}
+
+// ================================
+// LEARNING PROGRESS TRACKING
+// ================================
+
+model Progress {
+  id            String @id @default(cuid())
+  
+  userId        String
+  user          User @relation(fields: [userId], references: [id])
+  
+  contentId     String
+  content       Content @relation(fields: [contentId], references: [id])
+  
+  status        ProgressStatus @default(NOT_STARTED)
+  completionRate Float @default(0)
+  timeSpent     Int @default(0) // In minutes
+  
+  startedAt     DateTime?
+  completedAt   DateTime?
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  lessonProgress LessonProgress[]
+  
+  @@unique([userId, contentId])
+  @@map("progress")
+}
+
+model LessonProgress {
+  id          String @id @default(cuid())
+  
+  progressId  String
+  progress    Progress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+  
+  lessonId    String
+  lesson      Lesson @relation(fields: [lessonId], references: [id])
+  
+  status      ProgressStatus @default(NOT_STARTED)
+  timeSpent   Int @default(0)
+  completedAt DateTime?
+  
+  @@unique([progressId, lessonId])
+  @@map("lesson_progress")
+}
+
+// ================================
+// GAMIFICATION SYSTEM
+// ================================
+
+model Achievement {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String
+  rarity      AchievementRarity
+  points      Int
+  
+  // Unlock conditions
+  conditions  Json
+  
+  // Metadata
+  color       String?
+  isActive    Boolean @default(true)
+  
+  createdAt   DateTime @default(now())
+  
+  // Relationships
+  userAchievements UserAchievement[]
+  
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String @id @default(cuid())
+  
+  userId        String
+  user          User @relation(fields: [userId], references: [id])
+  
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  
+  earnedAt      DateTime @default(now())
+  
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// ================================
+// CHALLENGES & ACTIVITIES
+// ================================
+
+model Challenge {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  type        ChallengeType
+  category    String
+  
+  // Challenge details
+  objectives  String[]
+  instructions String
+  resources   String[]
+  
+  // Rewards
+  points      Int
+  badge       String?
+  
+  // Timing
+  startDate   DateTime
+  endDate     DateTime
+  duration    Int? // In days
+  
+  // Difficulty and requirements
+  difficulty  Difficulty
+  minParticipants Int?
+  maxParticipants Int?
+  
+  // Status
+  status      ChallengeStatus @default(DRAFT)
+  isGlobal    Boolean @default(false)
+  
+  // Creator
+  creatorId     String?
+  creator       User? @relation(fields: [creatorId], references: [id])
+  
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  participations ChallengeParticipation[]
+  submissions    ChallengeSubmission[]
+  
+  @@map("challenges")
+}
+
+model ChallengeParticipation {
+  id          String @id @default(cuid())
+  
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+  
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  
+  status      ParticipationStatus @default(ENROLLED)
+  joinedAt    DateTime @default(now())
+  completedAt DateTime?
+  
+  // Team participation
+  teamName    String?
+  teamMembers String[]
+  
+  // Progress tracking
+  progress    Float @default(0)
+  submissions ChallengeSubmission[]
+  
+  @@unique([userId, challengeId])
+  @@map("challenge_participations")
+}
+
+model ChallengeSubmission {
+  id              String @id @default(cuid())
+  
+  participationId String
+  participation   ChallengeParticipation @relation(fields: [participationId], references: [id])
+  
+  challengeId     String
+  challenge       Challenge @relation(fields: [challengeId], references: [id])
+  
+  // Submission data
+  content         Json
+  attachments     String[]
+  
+  // Verification
+  status          SubmissionStatus @default(PENDING)
+  reviewedBy      String?
+  reviewNotes     String?
+  score           Int?
+  
+  submittedAt DateTime @default(now())
+  reviewedAt  DateTime?
+  
+  @@map("challenge_submissions")
+}
+
+// ================================
+// SOCIAL FEATURES & COMMUNITY
+// ================================
+
+model Group {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  type        GroupType
+  category    String?
+  
+  // Settings
+  isPrivate   Boolean @default(false)
+  maxMembers  Int?
+  
+  // Media
+  avatar      String?
+  banner      String?
+  
+  // Creator
+  creatorId   String
+  creator     User @relation(fields: [creatorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  members     GroupMembership[]
+  posts       Post[]
+  
+  @@map("groups")
+}
+
+model GroupMembership {
+  id       String @id @default(cuid())
+  
+  userId   String
+  user     User @relation(fields: [userId], references: [id])
+  
+  groupId  String
+  group    Group @relation(fields: [groupId], references: [id])
+  
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+  
+  @@unique([userId, groupId])
+  @@map("group_memberships")
+}
+
+model Post {
+  id        String @id @default(cuid())
+  content   String
+  images    String[]
+  type      PostType @default(TEXT)
+  
+  // Privacy
+  visibility PostVisibility @default(PUBLIC)
+  
+  authorId  String
+  author    User @relation(fields: [authorId], references: [id])
+  
+  groupId   String?
+  group     Group? @relation(fields: [groupId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  comments  Comment[]
+  likes     Like[]
+  
+  @@map("posts")
+}
+
+model Comment {
+  id      String @id @default(cuid())
+  content String
+  
+  authorId String
+  author   User @relation(fields: [authorId], references: [id])
+  
+  postId   String
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  parentId String?
+  parent   Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  likes    Like[]
+  
+  @@map("comments")
+}
+
+model Like {
+  id        String @id @default(cuid())
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  
+  postId    String?
+  post      Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@map("likes")
+}
+
+model Follow {
+  id          String @id @default(cuid())
+  
+  followerId  String
+  follower    User @relation("Follower", fields: [followerId], references: [id])
+  
+  followingId String
+  following   User @relation("Following", fields: [followingId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// ================================
+// COMMUNICATION & NOTIFICATIONS
+// ================================
+
+model Message {
+  id         String @id @default(cuid())
+  content    String
+  type       MessageType @default(TEXT)
+  
+  senderId   String
+  sender     User @relation("MessageSender", fields: [senderId], references: [id])
+  
+  receiverId String
+  receiver   User @relation("MessageReceiver", fields: [receiverId], references: [id])
+  
+  readAt     DateTime?
+  sentAt     DateTime @default(now())
+  
+  @@map("messages")
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  title     String
+  content   String
+  type      NotificationType
+  data      Json?
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  
+  @@map("notifications")
+}
+
+// ================================
+// ASSIGNMENTS & ASSESSMENTS
+// ================================
+
+model Assignment {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  instructions String?
+  
+  // Assignment details
+  dueDate     DateTime
+  maxScore    Int
+  type        AssignmentType
+  
+  // Linked content
+  contentId   String?
+  content     Content? @relation(fields: [contentId], references: [id])
+  
+  classId     String
+  class       Class @relation(fields: [classId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  submissions AssignmentSubmission[]
+  
+  @@map("assignments")
+}
+
+model AssignmentSubmission {
+  id           String @id @default(cuid())
+  
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  
+  userId       String
+  user         User @relation(fields: [userId], references: [id])
+  
+  // Submission data
+  content      Json
+  attachments  String[]
+  
+  // Grading
+  score        Int?
+  feedback     String?
+  status       SubmissionStatus @default(PENDING)
+  
+  submittedAt  DateTime @default(now())
+  gradedAt     DateTime?
+  
+  @@unique([assignmentId, userId])
+  @@map("assignment_submissions")
+}
+
+// ================================
+// PARTNERSHIPS & COLLABORATIONS
+// ================================
+
+model Partnership {
+  id            String @id @default(cuid())
+  name          String
+  description   String?
+  type          PartnershipType
+  
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  
+  // Partner details
+  partnerName   String
+  partnerType   String
+  contactEmail  String
+  contactPhone  String?
+  
+  status        PartnershipStatus @default(PENDING)
+  
+  startDate     DateTime?
+  endDate       DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  activities    PartnershipActivity[]
+  
+  @@map("partnerships")
+}
+
+model PartnershipActivity {
+  id            String @id @default(cuid())
+  title         String
+  description   String
+  type          ActivityType
+  
+  partnershipId String
+  partnership   Partnership @relation(fields: [partnershipId], references: [id])
+  
+  // Activity details
+  location      String?
+  startDate     DateTime
+  endDate       DateTime?
+  maxParticipants Int?
+  
+  status        ActivityStatus @default(PLANNED)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  participations UserActivity[]
+  
+  @@map("partnership_activities")
+}
+
+model UserActivity {
+  id         String @id @default(cuid())
+  
+  userId     String
+  user       User @relation(fields: [userId], references: [id])
+  
+  activityId String
+  activity   PartnershipActivity @relation(fields: [activityId], references: [id])
+  
+  status     ParticipationStatus @default(ENROLLED)
+  joinedAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  // Verification
+  verified   Boolean @default(false)
+  verifiedBy String?
+  verifiedAt DateTime?
+  
+  @@unique([userId, activityId])
+  @@map("user_activities")
+}
+
+// ================================
+// ANALYTICS & REPORTING
+// ================================
+
+model Analytics {
+  id            String @id @default(cuid())
+  date          DateTime
+  
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  // Metrics
+  metrics       Json
+  
+  createdAt     DateTime @default(now())
+  
+  @@map("analytics")
+}
+
+model ContentAnalytics {
+  id              String @id @default(cuid())
+  
+  contentId       String
+  content         Content @relation(fields: [contentId], references: [id])
+  
+  // Engagement metrics
+  views           Int @default(0)
+  completions     Int @default(0)
+  averageRating   Float?
+  averageTime     Float?
+  
+  // Temporal data
+  date            DateTime
+  
+  @@unique([contentId, date])
+  @@map("content_analytics")
+}
+
+model ContentReview {
+  id        String @id @default(cuid())
+  
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id])
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  
+  rating    Int // 1-5 stars
+  review    String?
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([contentId, userId])
+  @@map("content_reviews")
+}
+
+// ================================
+// ENUMS
+// ================================
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+  NGO
+  GOVERNMENT
+  PARENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum InstitutionType {
+  SCHOOL
+  COLLEGE
+  UNIVERSITY
+  NGO
+  GOVERNMENT
+  PRIVATE
+}
+
+enum InstitutionStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum ContentType {
+  MODULE
+  LESSON
+  QUIZ
+  VIDEO
+  ARTICLE
+  INTERACTIVE
+  RESOURCE
+}
+
+enum ContentStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+}
+
+enum ChallengeType {
+  INDIVIDUAL
+  TEAM
+  CLASS
+  SCHOOL
+  GLOBAL
+}
+
+enum ChallengeStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ParticipationStatus {
+  ENROLLED
+  ACTIVE
+  COMPLETED
+  DROPPED
+  PENDING_APPROVAL
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+enum AchievementRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum GroupType {
+  STUDY
+  PROJECT
+  SOCIAL
+  CHALLENGE
+  OFFICIAL
+}
+
+enum GroupRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+  OWNER
+}
+
+enum PostType {
+  TEXT
+  IMAGE
+  VIDEO
+  LINK
+  POLL
+}
+
+enum PostVisibility {
+  PUBLIC
+  FRIENDS
+  GROUP
+  PRIVATE
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+enum NotificationType {
+  ACHIEVEMENT
+  CHALLENGE
+  ASSIGNMENT
+  MESSAGE
+  SYSTEM
+  REMINDER
+}
+
+enum AssignmentType {
+  QUIZ
+  PROJECT
+  ESSAY
+  PRESENTATION
+  PRACTICAL
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  DROPPED
+  SUSPENDED
+}
+
+enum PartnershipType {
+  NGO
+  GOVERNMENT
+  CORPORATE
+  EDUCATIONAL
+  COMMUNITY
+}
+
+enum PartnershipStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  SUSPENDED
+}
+
+enum ActivityType {
+  WORKSHOP
+  FIELD_TRIP
+  VOLUNTEERING
+  COMPETITION
+  CONFERENCE
+  TRAINING
+}
+
+enum ActivityStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
