@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         role: true,
         points: true,
         level: true,
-        school: {
+        institution: {
           select: {
             id: true,
             name: true,

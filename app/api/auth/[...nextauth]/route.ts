@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { prisma } from '../../../lib/prisma';
 
 const handler = NextAuth({
@@ -20,9 +20,15 @@ const handler = NextAuth({
           where: {
             email: credentials.email
           }
-        });
+        }) as {
+          id: string;
+          email: string;
+          name: string;
+          role: string;
+          password: string | null;
+        } | null;
 
-        if (!user) {
+        if (!user || !user.password) {
           return null;
         }
 

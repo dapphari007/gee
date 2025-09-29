@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { prisma } from '../../../lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, role, schoolId } = await request.json();
+    const { name, email, password, role, institutionId } = await request.json();
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -28,14 +28,19 @@ export async function POST(request: NextRequest) {
         email,
         password: hashedPassword,
         role: role || 'STUDENT',
-        schoolId: schoolId || null,
+        institutionId: institutionId || null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
       }
     });
 
-    // Don't return password
-    const { password: _, ...userWithoutPassword } = user;
-
-    return NextResponse.json(userWithoutPassword, { status: 201 });
+    // Return user without password (password not selected)
+    return NextResponse.json(user, { status: 201 });
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(

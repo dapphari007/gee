@@ -19,6 +19,7 @@ model User {
   email     String   @unique
   username  String?  @unique
   name      String
+  password  String?  // For credential-based auth
   avatar    String?
   role      UserRole @default(STUDENT)
   status    UserStatus @default(ACTIVE)
@@ -73,6 +74,21 @@ model User {
   sentMessages     Message[] @relation("MessageSender")
   receivedMessages Message[] @relation("MessageReceiver")
   notifications    Notification[]
+  
+  // Quiz attempts
+  quizAttempts     QuizAttempt[]
+  
+  // Challenges created
+  createdChallenges Challenge[] @relation("CreatedChallenges")
+  
+  // Groups created
+  createdGroups    Group[] @relation("CreatedGroups")
+  
+  // Assignment submissions
+  assignmentSubmissions AssignmentSubmission[]
+  
+  // Content reviews
+  contentReviews   ContentReview[]
   
   @@map("users")
 }
@@ -427,7 +443,7 @@ model Challenge {
   
   // Creator
   creatorId     String?
-  creator       User? @relation(fields: [creatorId], references: [id])
+  creator       User? @relation("CreatedChallenges", fields: [creatorId], references: [id])
   
   institutionId String?
   institution   Institution? @relation(fields: [institutionId], references: [id])
@@ -513,7 +529,7 @@ model Group {
   
   // Creator
   creatorId   String
-  creator     User @relation(fields: [creatorId], references: [id])
+  creator     User @relation("CreatedGroups", fields: [creatorId], references: [id])
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
